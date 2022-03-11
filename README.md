@@ -1,2 +1,2 @@
-# server-study
-Server study
+# nodejs-study
+study which study nodejs
