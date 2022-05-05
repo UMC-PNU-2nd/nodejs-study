@@ -135,3 +135,123 @@ Controller는 `@RestController`이므로 json으로 return 해준다.
 <img src="pic/1.png" alt="1"/>   
 <img src="pic/2.png" alt="2"/>   
 잘 됩니다.
+
+## 추가 - 자동 테이블 생성
+Django에서는 makemigrations와 migrate로    
+model의 내용을 읽어 table을 만들어 매칭시켜 주었다.   
+다만 현재 실습의 spring code에서는 이러한 기능이 없었기 때문에    
+이를 적용하기 위해서 JPA를 추가하였다.    
+
+**JPA**는 Java Persistence API의 준말로   
+java ORM의 인터페이스 모음이다.   
+사실 실습 코드에서도 JPA가 이미 build.gradle에 선언되어 있긴 한데,   
+따로 사용하지 않은것 같다.    
+
+JPA는 인터페이스의 모음집이지, 이를 구현한 것은 아니기 때문에   
+모음집을 구현한 추가적인 오픈소스가 필요하다.   
+
+사용할 수 있는 오픈 소스는 아래와 같다.   
+* Hibernate
+* EclipseLink
+* DataNucleus
+
+이 중 Hibernate를 사용한다.   
+
+먼저 application.yml의 수정이 필요하다.   
+```yml
+spring:
+  (...)
+  jpa:
+    open-in-view: true
+    hibernate:
+      ddl-auto: create
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+      use-new-id-generator-mappings: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+```
+
+`hibernate.ddl-auto`는 테이블을 만들기 전에   
+`drop table if exists User` 명령어를 돌릴지 알아보는 코드이다.   
+선택할 수 있는 옵션은 다음과 같다.   
+* create : 있으면 삭제 후 다시 테이블 생성
+* update : 수정 사항을 db에 반영
+* none : 안함.
+
+`hibernate.naming.pysicla-strategy`는 컬럼의 네이밍 규칙을 정할 수 있다.   
+`PhysicalNamingStrategyStandardImpl`은 그대로   
+`SpringPhysicalNamingStrategy`은 snake_case로 바꾸어 준다.    
+
+`hibernate.use-new-id-generator-mapping`은 id 규칙이다.   
+true면 jpa의 기본 전략을 따르게 되, class 내부에 정해준 id를 따라가지 않고   
+false일 경우 클래스 내부의 id를 따라가게 된다.   
+
+`show-sql`과 `hibernate.format_sql`은 콘솔에 사용할 sql문을 보여줄지에 대한 내용이다.   
+위와 같이 설정하면 정렬되어 sql문을 볼 수 있다.   
+
+그 다음 model의 User.java의 수정이 필요하다.    
+사실 이번 실습의 User.java의 역활은 Controller에서 변경 API의 request body만 지정됬을 뿐이였기 때문에   
+여기에 추가적으로 수정을 가해도 됬었다.   
+
+수정된 User.java는 아래와 같다.   
+```java
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "User")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int userIdx;
+
+    @Column(nullable = false, length = 45)
+    private String name;
+
+    @Column(nullable = false, length = 45)
+    private String nickName;
+
+    @Column(nullable = false, length = 45)
+    private String phone;
+
+    @Column(nullable = false, length = 45)
+    private String email;
+
+    @Column(nullable = false, length = 45)
+    private String password;
+}
+```
+
+추가된 annotation을 하나씩 보자.   
+
+`@Entity`는 이 클래스를 jpa model Entity로 보겠다는 annotation이다.   
+`@Table`는 연결될 table의 이름을 지정해주는 annotation이다.
+
+`@Id`는 다들 알다시피 primary key 지정,   
+`@GeneratedValue`는 매핑전략을 지정해준다.   
+보통은 IDENTITY를 사용한다.    
+id 값을 null로 주면, 자동으로 auto_increment을 통해 id를 채워주게 된다.    
+
+이렇게 바꿔준 뒤 run을 돌린다.    
+
+<img src="pic/4.png" alt="4"/>     
+
+먼저 table이 존재하지 않음을 확인하고   
+
+<img src="pic/5.png" alt="5"/>    
+
+run 하면 다음과 같이 `create table`을 통해 새로 table을 만들어준다.   
+
+
+<img src="pic/6.png" alt="6"/>     
+
+정상적으로 table이 만들어졌음을 볼 수 있다.    
+
+<img src="pic/7.png" alt="7"/>    
+
+기존의 회원가입 api도 정상적으로 작동한다.     
